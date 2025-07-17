@@ -1,0 +1,60 @@
+{
+  "name": "@srigi/mcp-webpage-screenshot",
+  "description": "MCP server for webpage screenshot",
+  "license": "MIT",
+  "version": "0.1.0",
+  "bugs": {
+    "url": "https://github.com/srigi/mcp-webpage-screenshot/issues"
+  },
+  "homepage": "https://github.com/srigi/mcp-webpage-screenshot",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/srigi/mcp-webpage-screenshot.git"
+  },
+  "keywords": [
+    "image",
+    "mcp",
+    "modelcontextprotocol",
+    "screenshot",
+    "webpage"
+  ],
+  "bin": {
+    "mcp-webpage-screenshot": "dist/cli.js"
+  },
+  "files": [
+    "dist/cli.js",
+    "logs",
+    "src"
+  ],
+  "scripts": {
+    "build": "ncc build src/index.ts --minify --out dist/ && echo '#!/usr/bin/env node' | cat - dist/index.js > dist/cli.js && chmod +x dist/cli.js",
+    "build:tsc": "tsc && tsc-alias",
+    "dev": "pnpm build:tsc && chokidar 'src/**/*.ts' -c 'tsc && tsc-alias'",
+    "dev:inspector": "pnpx @modelcontextprotocol/inspector",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "tsc": "tsc -noEmit",
+    "test": "vitest run",
+    "start": "node dist/cli.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "~1.16",
+    "winston": "~3.17",
+    "zod": "~3.25"
+  },
+  "devDependencies": {
+    "@eslint/js": "~9.31",
+    "@types/node": "^24",
+    "@vercel/ncc": "~0.38",
+    "chokidar-cli": "~3.0",
+    "eslint": "~9.31",
+    "eslint-config-prettier": "~10.1",
+    "eslint-plugin-prettier": "~5.5",
+    "prettier": "~3.6",
+    "tsc-alias": "~1.8",
+    "typescript": "~5.8",
+    "typescript-eslint": "~8.37",
+    "vitest": "~3.2"
+  },
+  "packageManager": "pnpm@10.13.1+sha512.37ebf1a5c7a30d5fabe0c5df44ee8da4c965ca0c5af3dbab28c3a1681b70a256218d05c81c9c0dcf767ef6b8551eb5b960042b9ed4300c59242336377e01cfad"
+}
