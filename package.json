@@ -31,6 +31,7 @@
     "build:tsc": "tsc && tsc-alias",
     "dev": "pnpm build:tsc && chokidar 'src/**/*.ts' -c 'tsc && tsc-alias'",
     "dev:inspector": "pnpx @modelcontextprotocol/inspector",
+    "playwright": "playwright",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "tsc": "tsc -noEmit",
@@ -38,23 +39,24 @@
     "start": "node dist/cli.js"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "~1.16",
+    "@modelcontextprotocol/sdk": "~1.17",
+    "playwright": "~1.54",
     "winston": "~3.17",
     "zod": "~3.25"
   },
   "devDependencies": {
-    "@eslint/js": "~9.31",
+    "@eslint/js": "~9.32",
     "@types/node": "^24",
     "@vercel/ncc": "~0.38",
     "chokidar-cli": "~3.0",
-    "eslint": "~9.31",
+    "eslint": "~9.32",
     "eslint-config-prettier": "~10.1",
     "eslint-plugin-prettier": "~5.5",
     "prettier": "~3.6",
     "tsc-alias": "~1.8",
     "typescript": "~5.8",
-    "typescript-eslint": "~8.37",
+    "typescript-eslint": "~8.38",
     "vitest": "~3.2"
   },
-  "packageManager": "pnpm@10.13.1+sha512.37ebf1a5c7a30d5fabe0c5df44ee8da4c965ca0c5af3dbab28c3a1681b70a256218d05c81c9c0dcf767ef6b8551eb5b960042b9ed4300c59242336377e01cfad"
+  "packageManager": "pnpm@10.14.0+sha512.ad27a79641b49c3e481a16a805baa71817a04bbe06a38d17e60e2eaee83f6a146c6a688125f5792e48dd5ba30e7da52a5cda4c3992b9ccf333f9ce223af84748"
 }
