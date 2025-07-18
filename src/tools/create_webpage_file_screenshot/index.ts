@@ -1,4 +1,6 @@
 import type { ToolCallback } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { writeFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import type { Logger } from 'winston';
 import { z } from 'zod';
 
@@ -14,14 +16,15 @@ export const schema = {
 export function getHandler(logger: Logger) {
   const { createWebpageFileScreenshot } = getUtils(logger);
 
-  const handler: ToolCallback<typeof schema> = async ({ webpageFilePath, targetPath }) => {
-    logger.debug('[create_webpage_file_screenshot] handler called', { webpageFilePath, targetPath });
+  const handler: ToolCallback<typeof schema> = async ({ targetPath, webpageFilePath, workspacePath }) => {
+    logger.debug('[create_webpage_file_screenshot] handler called', { targetPath, webpageFilePath });
 
+    const fullWebpageFilePath = resolve(workspacePath, webpageFilePath);
     const [webpageFileScreenshotErr, screenshotBuffer] = await tryCatch<CreateWebpageFileScreenshotError, Buffer>(
-      createWebpageFileScreenshot(webpageFilePath),
+      createWebpageFileScreenshot(fullWebpageFilePath, { width: 1280, height: 720 }),
     );
-    if (webpageFileScreenshotErr != null) {
-      logger.error(`[create_webpage_file_screenshot]: ${webpageFileScreenshotErr.message}`);
+    if (webpageFileScreenshotErr) {
+      logger.error(`[create_webpage_file_screenshot]: ${webpageFileScreenshotErr.message}`, { error: webpageFileScreenshotErr });
 
       return {
         _meta: {
@@ -37,6 +40,11 @@ export function getHandler(logger: Logger) {
       };
     }
 
+    // Save the screenshot to the target path
+    writeFileSync(resolve(workspacePath, targetPath), screenshotBuffer);
+    const size = Math.round((screenshotBuffer.length / 1024) * 100) / 100; // size in kB
+    logger.info(`[create_webpage_file_screenshot] screenshot saved to ${targetPath}`, { size: `${size}kB` });
+
     return {
       _meta: {
         success: true,
@@ -44,7 +52,7 @@ export function getHandler(logger: Logger) {
       content: [
         {
           type: 'text' as const,
-          text: `Image saved; ${screenshotBuffer.length} bytes at ${targetPath}`,
+          text: `screenshot saved to ${targetPath} (${size}kB)`,
         },
       ],
     };

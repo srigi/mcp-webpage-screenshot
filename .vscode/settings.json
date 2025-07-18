@@ -1,5 +1,5 @@
 {
-  "cSpell.words": ["modelcontextprotocol"],
+  "cSpell.words": ["fullpage", "modelcontextprotocol", "networkidle"],
   "editor.defaultFormatter": "esbenp.prettier-vscode",
   "editor.formatOnSave": true,
   "eslint.validate": ["javascript", "typescript"]
