@@ -4,27 +4,41 @@ import { resolve } from 'node:path';
 import type { Logger } from 'winston';
 import { z } from 'zod';
 
-import { CreateWebpageFileScreenshotError, getUtils } from './utils.js';
+import { CreateWebpageFileScreenshotError, DEFAULT_VIEWPORT_HEIGHT, DEFAULT_VIEWPORT_WIDTH, getUtils } from './utils.js';
 import { tryCatch } from '~/utils/tryCatch.js';
+import { addScreenshot as addScreenshotResource } from '~/resources/screenshots';
 
 export const schema = {
-  webpageFilePath: z.string().describe('File path of the webpage to screenshot (relative to the current workspace)'),
-  targetPath: z.string().describe('File where to save the image (relative to the current workspace)'),
+  screenshotFilePath: z.string().describe('File where to save the screenshot (relative to the current workspace)'),
+  webpageFilePath: z.string().describe('HTML file path of the webpage to screenshot (relative to the current workspace)'),
   workspacePath: z.string().describe('The current workspace absolute path'),
+  viewport: z
+    .object({
+      width: z.number().default(DEFAULT_VIEWPORT_WIDTH),
+      height: z.union([z.number(), z.literal('fullpage')]).default(DEFAULT_VIEWPORT_HEIGHT),
+    })
+    .describe(
+      `Viewport settings for the screenshot - an object with "width" and "height" properties.
+      Width must be a number in pixels.
+      Height can be either a number in pixels of literal value "fullpage".
+      Not needed for the default viewport size (${DEFAULT_VIEWPORT_WIDTH}×${DEFAULT_VIEWPORT_HEIGHT}px).`,
+    )
+    .default({ width: DEFAULT_VIEWPORT_WIDTH, height: DEFAULT_VIEWPORT_HEIGHT })
+    .optional(),
 } as const;
 
-export function getHandler(logger: Logger) {
+export function getHandler(logger: Logger): ToolCallback<typeof schema> {
   const { createWebpageFileScreenshot } = getUtils(logger);
 
-  const handler: ToolCallback<typeof schema> = async ({ targetPath, webpageFilePath, workspacePath }) => {
-    logger.debug('[create_webpage_file_screenshot] handler called', { targetPath, webpageFilePath });
+  const handler: ToolCallback<typeof schema> = async ({ screenshotFilePath: targetFilePath, webpageFilePath, workspacePath, viewport }) => {
+    logger.debug('[🛠️ create_webpage_file_screenshot] handler called', { targetFilePath, webpageFilePath, viewport });
 
     const fullWebpageFilePath = resolve(workspacePath, webpageFilePath);
-    const [webpageFileScreenshotErr, screenshotBuffer] = await tryCatch<CreateWebpageFileScreenshotError, Buffer>(
-      createWebpageFileScreenshot(fullWebpageFilePath, { width: 1280, height: 720 }),
+    const [webpageFileScreenshotErr, screenshotResult] = await tryCatch<CreateWebpageFileScreenshotError, [Buffer, string]>(
+      createWebpageFileScreenshot(fullWebpageFilePath, { viewport }),
     );
     if (webpageFileScreenshotErr) {
-      logger.error(`[create_webpage_file_screenshot]: ${webpageFileScreenshotErr.message}`, { error: webpageFileScreenshotErr });
+      logger.error(`[🛠️ create_webpage_file_screenshot] ${webpageFileScreenshotErr.message}`, { error: webpageFileScreenshotErr });
 
       return {
         _meta: {
@@ -40,10 +54,12 @@ export function getHandler(logger: Logger) {
       };
     }
 
-    // Save the screenshot to the target path
-    writeFileSync(resolve(workspacePath, targetPath), screenshotBuffer);
+    const [screenshotBuffer, mimeType] = screenshotResult;
     const size = Math.round((screenshotBuffer.length / 1024) * 100) / 100; // size in kB
-    logger.info(`[create_webpage_file_screenshot] screenshot saved to ${targetPath}`, { size: `${size}kB` });
+
+    const [screenshotUri] = addScreenshotResource(screenshotBuffer, mimeType, webpageFilePath, logger);
+    writeFileSync(resolve(workspacePath, targetFilePath), screenshotBuffer);
+    logger.info(`[🛠️ create_webpage_file_screenshot] screenshot saved to ${targetFilePath}`, { size: `${size}kB` });
 
     return {
       _meta: {
@@ -52,7 +68,7 @@ export function getHandler(logger: Logger) {
       content: [
         {
           type: 'text' as const,
-          text: `screenshot saved to ${targetPath} (${size}kB)`,
+          text: `Screenshot created and saved to ${targetFilePath} (${size}kB). Screenshot resource available at URI ${screenshotUri}`,
         },
       ],
     };
