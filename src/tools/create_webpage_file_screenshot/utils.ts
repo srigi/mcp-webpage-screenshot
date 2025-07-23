@@ -1,7 +1,7 @@
 import { Browser, chromium } from 'playwright';
-import type { Logger } from 'winston';
 
 import { tryCatch } from '~/utils/tryCatch.js';
+import { getLogger } from '~/logger';
 
 export class BrowserLaunchError extends Error {
   name = 'BrowserLaunchError';
@@ -37,10 +37,10 @@ type Options = {
   };
 };
 
-export function getUtils(logger: Logger) {
+export function getUtils() {
   return {
     async createWebpageFileScreenshot(webpageFilePath: string, options: Options): Promise<[Buffer, string]> {
-      logger.debug('[🛠️ create_webpage_file_screenshot] util/createWebpageFileScreenshot called', { webpageFilePath, options });
+      getLogger().debug('[🛠️ create_webpage_file_screenshot] util/createWebpageFileScreenshot called', { webpageFilePath, options });
 
       const browser = await getBrowser();
       const [pageErr, page] = await tryCatch(

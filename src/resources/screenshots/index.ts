@@ -1,5 +1,6 @@
 import { Variables } from '@modelcontextprotocol/sdk/shared/uriTemplate.js';
-import type { Logger } from 'winston';
+
+import { getLogger } from '~/logger';
 
 export type ScreenshotResource = {
   blob: string;
@@ -10,9 +11,9 @@ export type ScreenshotResource = {
 
 export const screenshotResources = new Map<number, ScreenshotResource>();
 
-export function getHandler(logger: Logger) {
+export function getHandler() {
   return (uri: URL, variables: Variables) => {
-    logger.debug('[📚 screenshots://{screenshotId}] ReadResourceCallback()', { uri, variables });
+    getLogger().debug('[📚 screenshots://{screenshotId}] ReadResourceCallback()', { uri, variables });
 
     if (typeof variables.screenshotId !== 'string') {
       return {
@@ -36,7 +37,7 @@ export function getHandler(logger: Logger) {
   };
 }
 
-export function addScreenshot(buffer: Buffer, mimeType: string, webpageScreenshotUri: string, logger: Logger) {
+export function addScreenshot(buffer: Buffer, mimeType: string, webpageScreenshotUri: string) {
   const screenshotId = new Date().getTime();
   const screenshotResource = {
     blob: `data:${mimeType};base64,${buffer.toString('base64')}`,
@@ -46,7 +47,7 @@ export function addScreenshot(buffer: Buffer, mimeType: string, webpageScreensho
   };
 
   screenshotResources.set(screenshotId, screenshotResource);
-  logger.debug('[📚 screenshots://{screenshotId}] addScreenshot()', { screenshotResources: screenshotResources.size });
+  getLogger().debug('[📚 screenshots://{screenshotId}] addScreenshot()', { screenshotResources: screenshotResources.size });
 
   return [screenshotResource.uri, screenshotResource];
 }

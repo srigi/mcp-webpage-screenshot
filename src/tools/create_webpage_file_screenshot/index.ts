@@ -1,10 +1,10 @@
 import type { ToolCallback } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import type { Logger } from 'winston';
 import { z } from 'zod';
 
 import { CreateWebpageFileScreenshotError, DEFAULT_VIEWPORT_HEIGHT, DEFAULT_VIEWPORT_WIDTH, getUtils } from './utils.js';
+import { getLogger } from '~/logger';
 import { tryCatch } from '~/utils/tryCatch.js';
 import { addScreenshot as addScreenshotResource } from '~/resources/screenshots';
 
@@ -27,8 +27,9 @@ export const schema = {
     .optional(),
 } as const;
 
-export function getHandler(logger: Logger): ToolCallback<typeof schema> {
-  const { createWebpageFileScreenshot } = getUtils(logger);
+export function getHandler(): ToolCallback<typeof schema> {
+  const logger = getLogger();
+  const { createWebpageFileScreenshot } = getUtils();
 
   const handler: ToolCallback<typeof schema> = async ({ screenshotFilePath: targetFilePath, webpageFilePath, workspacePath, viewport }) => {
     logger.debug('[🛠️ create_webpage_file_screenshot] handler called', { targetFilePath, webpageFilePath, viewport });
@@ -57,7 +58,7 @@ export function getHandler(logger: Logger): ToolCallback<typeof schema> {
     const [screenshotBuffer, mimeType] = screenshotResult;
     const size = Math.round((screenshotBuffer.length / 1024) * 100) / 100; // size in kB
 
-    const [screenshotUri] = addScreenshotResource(screenshotBuffer, mimeType, webpageFilePath, logger);
+    const [screenshotUri] = addScreenshotResource(screenshotBuffer, mimeType, webpageFilePath);
     writeFileSync(resolve(workspacePath, targetFilePath), screenshotBuffer);
     logger.info(`[🛠️ create_webpage_file_screenshot] screenshot saved to ${targetFilePath}`, { size: `${size}kB` });
 
