@@ -10,6 +10,7 @@ Each capture is saved to disk and exposed as a [Resource](https://modelcontextpr
 ### Requirements
 
 - Node.js v20+
+- pnpm v10.x
 
 ### Configure MCP in your IDE
 
@@ -19,8 +20,8 @@ Add the following configuration to your MCP settings:
 {
   "mcpServers": {
     "webpageScreenshot": {
-      "command": "npx",
-      "args": ["-y", "@srigi/mcp-webpage-screenshot"],
+      "command": "pnpm",
+      "args": ["dlx", "@srigi/mcp-webpage-screenshot"],
       "autoApprove": ["create_webpage_file_screenshot"]
     }
   }
