@@ -1,7 +1,7 @@
 import { Browser, chromium } from 'playwright';
 
+import { getLogger } from '~/utils/logger';
 import { tryCatch } from '~/utils/tryCatch.js';
-import { getLogger } from '~/logger';
 
 export class BrowserLaunchError extends Error {
   name = 'BrowserLaunchError';

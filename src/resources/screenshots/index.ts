@@ -1,6 +1,6 @@
 import { Variables } from '@modelcontextprotocol/sdk/shared/uriTemplate.js';
 
-import { getLogger } from '~/logger';
+import { getLogger } from '~/utils/logger';
 
 export type ScreenshotResource = {
   blob: string;

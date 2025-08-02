@@ -2,3 +2,4 @@ dist
 my_resources
 node_modules
 src/**/*.js
+*.log
