@@ -1,167 +1,137 @@
-# Webpage screenshot MCP
+# Webpage Screenshot MCP
+
+<img src="https://i.postimg.cc/LRfcTXD9/Chat-GPT-Image-Aug-2-2025-06-52-39-PM.webp" width="50%" alt="Webpage Screenshot MCP">
+
+Capture screenshots of local `.html` files using Playwright Chromium.
+Each capture is saved to disk and exposed as a [Resource](https://modelcontextprotocol.io/specification/2025-06-18/server/resources) with URI scheme `screenshots://{screenshotId}`, that compatible MCP clients can read.
 
 ## Usage & Requirements
 
 ### Requirements
 
 - Node.js v20+
-- Google Cloud Platform account (free tier sufficient)
-- Compatible IDE: Cline or Windsurf
 
-### Setup Guide
-
-Follow these steps to set up your Google Images Search MCP:
-
-#### Step 1: Configure MCP in Your IDE
+### Configure MCP in your IDE
 
 Add the following configuration to your MCP settings:
 
 ```json
 {
   "mcpServers": {
-    "googleImagesSearch": {
+    "webpageScreenshot": {
       "command": "npx",
-      "args": ["-y", "@srigi/mcp-google-images-search"],
-      "env": {
-      },
-      "autoApprove": ["search_image", "persist_image"]
+      "args": ["-y", "@srigi/mcp-webpage-screenshot"],
+      "autoApprove": ["create_webpage_file_screenshot"]
     }
   }
 }
 ```
 
-### Usage Example
+## Usage examples
 
-Here's how to use the MCP once configured:
+Prompts you can try:
 
-1. **Search for images**: Ask your AI assistant to search for images
+1. Create a full-page screenshot of `example/page.html` and save it alongside.
+2. Make a second screenshot with viewport width 640 and height 1280px.
 
-   ```
-   Search for image of F-22 in-air
-   ```
+## Logging
 
-2. **Get more results**: Request additional search results
-
-   ```
-   Show me 3 more images
-   ```
-
-3. **Save an image**: Ask to save a specific result to your project
-   ```
-   Save the 3rd image to the "assets" folder
-   ```
-
-The MCP will display the search results as actual images in your chat history, and you can easily save any of them to your local project directory.
-
-## Development & Dev-Requirements
-
-Feel free to join development of this MCP. Quality contribution is welcomed.
-
-### Development requirements
-
-- Node.js v20+
-- [direnv](https://direnv.net/#getting-started)
-- PNPM v10
-
-### Development setup
-
-For development, you need to start the dev build and use a different MCP configuration that points to the continuously recompiled source files:
-
-#### Step 1: Configure Environment
-
-1. Copy [`.envrc (example)`](<.envrc%20(example)>) to `.envrc`
-2. Fill in your `API_KEY` and `SEARCH_ENGINE_ID` in `.envrc`
-
-#### Step 2: Install Dependencies
-
-```bash
-pnpm install
-```
-
-#### Step 3: Start Development Mode
-
-```bash
-pnpm dev
-```
-
-This starts TypeScript compiler in watch mode, continuously recompiling changes.
-
-#### Step 4: Configure IDE for Development
-
-Use this MCP configuration for development (replace the path with your actual project path):
+You can configure logging by adding flags to the `args` array in your MCP configuration:
 
 ```json
-{
-  "mcpServers": {
-    "googleImagesSearch": {
-      "command": "node",
-      "args": ["/absolute/path/to/project/src/index.js"],
-      "env": {
-        "API_KEY": "your-google-api-key-here",
-        "SEARCH_ENGINE_ID": "your-search-engine-id-here"
-      },
-      "autoApprove": ["search_image", "persist_image"]
-    }
-  }
+"webpageScreenshot": {
+  "command": "npx",
+  "args": [
+    "-y", "@srigi/mcp-webpage-screenshot",
+    "--debug", "/absolute/path/to/debug.log",
+    "--pretty-print"
+  ]
 }
 ```
 
-#### Development Tools
+Debug flags:
 
-For debugging and testing, you can start the MCP inspector:
+- No `--debug`: logging disabled
+- `--debug`: writes to `debug.log` in the current working directory of the running MCP
+- `--debug /absolute/path/to/debug.log`: writes logs to that absolute path (absolute paths only)
+- `--pretty-print`: pretty formatted JSON logs
 
-```bash
-pnpx @modelcontextprotocol/inspector
+## 🛠️ Tools & Resources
+
+### Tool: `create_webpage_file_screenshot`
+
+Create a screenshot of a local HTML file:
+
+- loads the local HTML via `file://`
+- waits for `networkidle`
+- captures PNG (Buffer), supports full-page height
+- saves the image to a workspace-relative path
+- adds an in-memory Resource entry and returns a `screenshots://` URI
+
+Parameters:
+
+- `screenshotFilePath`: File where to save the screenshot (relative to the current workspace)
+- `webpageFilePath`: HTML file path of the webpage to screenshot (relative to the current workspace)
+- `workspacePath`: The current workspace absolute path
+- `viewport` (optional):
+  - `width: number` (default 1280)
+  - `height: number | "fullpage"` (default 768). Use `"fullpage"` to capture the entire page height.
+
+_Security constraints: all paths are resolved relative to `workspacePath`_
+
+### Resource: `screenshots://{screenshotId}`
+
+Each created screenshot is added to an in-memory registry and exposed as a Resource with:
+
+- `uri`: `screenshots://<screenshotId>`
+- `blob`: `data:image/png;base64,...`
+- `mimeType`: `image/png`
+- `text`: original webpage file path used for the screenshot
+
+Note:
+
+- Listing resources is not implemented (list is not available).
+
+## Development
+
+### Requirements
+
+- Node.js v20+
+- PNPM v10
+
+Playwright Chromium is required. To ensure the shell browser is installed, run:
+
+```
+pnpm playwright install --with-deps --only-shell chromium
 ```
 
-Open the inspector URL that includes the `MCP_PROXY_AUTH_TOKEN` (reported on the terminal). In the inspector's UI fill the same **Command:** and **Arguments:** as in above MCP configuration, then click "▷ Connect". Finally click "List Tools" to see the MPC's tools, and invoke them with desired arguments.
+### Steps
 
-Check the [log file](logs/info.log) for debugging information.
+1. Install dependencies:
+   ```
+   pnpm install
+   ```
+2. Start the TypeScript compiler in watch mode:
+   ```
+   pnpm dev
+   ```
+3. (Optional) Start the MCP Inspector:
+   ```
+   pnpm dev:inspector
+   ```
+4. Update your MCP configuration for development (adjust the path to the compiled JS):
+   ```json
+   {
+     "mcpServers": {
+       "webpageScreenshot": {
+         "command": "node",
+         "args": ["/absolute/path/to/compiled/src/index.js", "--debug", "--pretty-print"],
+         "autoApprove": ["create_webpage_file_screenshot"]
+       }
+     }
+   }
+   ```
 
-_Note: When you make changes to the source code, the dev build will automatically recompile, but you may need to restart the MCP server in your IDE to apply the changes._
+Notes:
 
-## Available Tools
-
-### [search_image](src/tools/search_image/README.md)
-
-Search for images using Google Custom Search API.
-
-**Parameters:**
-
-- `query` (string, required): Search query for images
-- `count` (number, optional): Number of results to return (1-10, default: 2)
-- `safe` (string, optional): Safe search setting - 'off', 'medium', 'high' (default: 'off')
-- `startIndex` (number, optional): Starting index for pagination (default: 1)
-
-### [persist_image](src/tools/persist_image/README.md)
-
-Download and save images from URLs to your local project directory.
-
-**Parameters:**
-
-- `link` (string, required): URL to the full-quality image
-- `path` (string, required): Relative path where to save the image (can be folder or folder/filename.ext)
-
-**Features:**
-
-- Automatic file extension detection from MIME type
-- Directory creation if needed
-- Security validation (prevents directory traversal)
-- Content type validation (images only)
-- Supports JPEG, PNG, GIF, WebP, SVG, BMP, TIFF, AVIF
-
-## TODO
-
-- add example usage screencast
-- open GH issue for image support in the chat history:
-  - Augment
-  - Claude (desktop)
-  - Copilot
-  - Cursor
-  - RooCode
-  - Zed
-
-- allow specifying of the output file in the chat
-- configurable logging severity
-- log directory in user profile folder (AppData\Roaming, Library/Application Support) or configurable
-- image fetch timeout & retry
+- Restart the MCP in your IDE after source changes to pick up newly compiled code.
