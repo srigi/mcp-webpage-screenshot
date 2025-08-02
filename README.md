@@ -99,7 +99,7 @@ Note:
 - Node.js v20+
 - PNPM v10
 
-Playwright Chromium is required. To ensure the shell browser is installed, run:
+The install step will _post-install_ Playwright Chromium, but it's not guaranteed to work. To ensure the shell browser is installed, run:
 
 ```
 pnpm playwright install --with-deps --only-shell chromium
