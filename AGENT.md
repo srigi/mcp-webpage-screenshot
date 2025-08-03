@@ -45,12 +45,24 @@ High-level layout:
 - `src/utils/...`: Shared utilities (`logger`, `tryCatch`, etc.)
 - `src/utils/cli/...`: CLI parsers and helpers
 
-Key modules:
+### Key modules:
 
-- Server bootstrap (see [src/index.ts](src/index.ts:1)): registers resource template `screenshots://{screenshotId}` and tool `create_webpage_file_screenshot`
-- Tool (see [src/tools/create_webpage_file_screenshot/index.ts](src/tools/create_webpage_file_screenshot/index.ts:1)): zod `schema` + `handler`; writes PNG to disk; adds in‑memory resource
-- Playwright logic (see [src/tools/create_webpage_file_screenshot/utils.ts](src/tools/create_webpage_file_screenshot/utils.ts:1)): launches Chromium, navigates `file://`, screenshots (fullpage supported)
-- Resource registry (see [src/resources/screenshots/index.ts](src/resources/screenshots/index.ts:1)): in‑memory map and read handler
+### Server Bootstrap
+
+- **Entry point** (see [src/index.ts](src/index.ts:1)): registers MCP Tools and Resource(s)
+
+#### MCP Tools
+
+- **[`create_webpage_file_screenshot`](src/tools/create_webpage_file_screenshot)**: screenshot local HTML file; write PNG relative to current workspace; also adds in‑memory MCP Resource
+- **[`create_webpage_url_screenshot`](src/tools/create_webpage_url_screenshot)**: screenshot a web URL; write PNG relative to current workspace; also adds in‑memory MCP Resource
+
+#### Resources
+
+- **`screenshots://{screenshotId}` (resource template)** (see [src/resources/screenshots](src/resources/screenshots)): in‑memory Map and read handler for accessing captured screenshots via URI
+
+#### Utils
+
+- **[`src/utils/browser.ts`](src/utils/browser.ts)**: shared Chromium browser instance with lazy initialization and error handling
 
 Organizational guidance:
 
@@ -73,16 +85,44 @@ Behavior:
 Usage rules:
 
 - Initialize once in entrypoint; reuse `getLogger()` across modules
-- Use scoped prefixes like `[🛠️ create_webpage_file_screenshot]` and `[📚 screenshots://{screenshotId}]`
+- Use scoped prefixes like `[🛠️ create_webpage_file_screenshot]`, `[🛠️ create_webpage_url_screenshot]`, and `[📚 screenshots://{screenshotId}]`
 
 ## 6) Error Handling
 
 Pattern with tuple results:
 
 - Use `tryCatch` which returns `[null, data]` on success or `[error]` on failure; callers branch explicitly
-- Throw domain errors with clear names where appropriate (e.g., `BrowserLaunchError`, `CreateWebpageFileScreenshotError`) and map them to structured MCP responses with `_meta.success: false` and user‑readable messages
+- Throw domain errors with clear names where appropriate (e.g., `BrowserLaunchError`, `CreateWebpageFileScreenshotError`, `CreateWebpageUrlScreenshotError`) and map them to structured MCP responses with `_meta.success: false` and user‑readable messages
 
-## 7) Tool and Resource Conventions (MCP)
+## 7) Browser Management and Security
+
+### Browser Instance Management
+
+- **Shared browser instance** (see [src/utils/browser.ts](src/utils/browser.ts:1)): singleton Chromium browser with lazy initialization
+- **Error handling**: `BrowserLaunchError` for launch failures with proper cleanup
+- **Resource management**: browser instance reused across all screenshot operations
+
+### Security Guidelines for URL Screenshots
+
+- **Protocol validation**: only HTTP/HTTPS URLs accepted, reject `file://`, `data://`, etc.
+- **Security headers**: set `DNT: 1` (Do Not Track) and custom User-Agent
+- **Browser security**: disable downloads (`acceptDownloads: false`), respect CSP (`bypassCSP: false`)
+- **HTTPS handling**: don't ignore HTTPS errors (`ignoreHTTPSErrors: false`)
+- **Timeout protection**: progressive timeouts (5s, 8s, 12s) prevent hanging on malicious/slow sites
+- **Network isolation**: each screenshot uses isolated page context
+
+### Tool Selection Guide
+
+| Feature         | File Screenshot        | URL Screenshot                      |
+| --------------- | ---------------------- | ----------------------------------- |
+| **Input**       | Local HTML file path   | HTTP/HTTPS URL                      |
+| **Protocol**    | `file://`              | `http://`, `https://`               |
+| **Retry Logic** | Basic navigation       | 3-attempt with progressive timeouts |
+| **Security**    | Local file access only | URL validation, security headers    |
+| **Use Cases**   | Static HTML, testing   | Live websites, external content     |
+| **Network**     | No network required    | Requires internet connection        |
+
+## 8) Tool and Resource Conventions (MCP)
 
 Tools:
 
@@ -96,7 +136,7 @@ Resources:
 - Maintain in‑memory registry (`Map`) with typed entries
 - Read handler validates URI variables, returns meaningful errors when missing/not found, or returns typed `contents` when found
 
-## 8) Testing
+## 9) Testing
 
 - Vitest is configured (Node env), test files `src/**/*.test.ts`
 - Excludes `dist`, `my_resources`, `node_modules`, and `**/*.js`
@@ -107,14 +147,14 @@ Guidance:
 - Co‑locate tests with `.test.ts`
 - Use alias imports in tests consistently
 
-## 9) Import Rules and Examples
+## 10) Import Rules and Examples
 
 - Prefer `~` alias for internal imports (`~/...`)
 - For local sibling files, import using relative paths (`./...`)
 - Use `node:` prefix for built‑ins (`node:path`, `node:fs`, `node:process`, `node:stream`)
 - Use `import type` for type‑only imports where it clarifies intent
 
-## 10) Scripts and Developer Workflow
+## 11) Scripts and Developer Workflow
 
 Core scripts and what they do (see [package.json](package.json:28)):
 
@@ -131,12 +171,12 @@ Workflow tips:
 - For local development, run `pnpm dev` and point your IDE MCP config to the compiled `src/index.js` if needed (see README). Restart the MCP in the IDE after changes if it caches the server process.
 - For distribution or end‑to‑end testing of the bundled binary, run `pnpm build` and execute `dist/cli.js`.
 
-## 11) Folder and File Conventions
+## 12) Folder and File Conventions
 
 - Generated outputs (`dist`, logs) and `node_modules` are excluded from lint/tests; `src/**/*.js` is ignored in ESLint/tests in favor of TS
 - Keep public entry files (`index.ts`) thin; move heavy logic to `utils.ts` or sibling modules
 
-## 12) Adding a New Tool — Checklist
+## 13) Adding a New Tool — Checklist
 
 1. Create `src/tools/<new_tool>/`
 2. `index.ts`:
@@ -149,7 +189,7 @@ Workflow tips:
 5. Add tests `src/tools/<new_tool>/*.test.ts`
 6. Run `pnpm lint:fix` and `pnpm test`
 
-## 13) Adding a New Resource — Checklist
+## 14) Adding a New Resource — Checklist
 
 1. Create `src/resources/<name>/`
 2. Define types and in‑memory registry
@@ -158,7 +198,7 @@ Workflow tips:
 5. Register with `ResourceTemplate('scheme://{vars}', { list: undefined })` in `src/index.ts`
 6. Add tests and logging
 
-## 14) Commit Hygiene
+## 15) Commit Hygiene
 
 - Ensure Prettier formatting passes (ESLint will warn via `prettier/prettier`)
 - Resolve all TypeScript errors (`pnpm tsc`)

@@ -2,7 +2,7 @@
 
 <img src="https://i.postimg.cc/LRfcTXD9/Chat-GPT-Image-Aug-2-2025-06-52-39-PM.webp" width="50%" alt="Webpage Screenshot MCP">
 
-Capture screenshots of local `.html` files using Playwright Chromium.
+Capture screenshots of web URLs or local `.html` files using Playwright Chromium.
 Each capture is saved to disk and exposed as a [Resource](https://modelcontextprotocol.io/specification/2025-06-18/server/resources) with URI scheme `screenshots://{screenshotId}`, that compatible MCP clients can read.
 
 ## Usage & Requirements
@@ -30,7 +30,10 @@ Add the following configuration to your MCP settings:
     "webpageScreenshot": {
       "command": "pnpm",
       "args": ["dlx", "@srigi/mcp-webpage-screenshot"],
-      "autoApprove": ["create_webpage_file_screenshot"]
+      "autoApprove": [
+        "create_webpage_file_screenshot",
+        "create_webpage_url_screenshot"
+      ]
     }
   }
 }
@@ -40,8 +43,14 @@ Add the following configuration to your MCP settings:
 
 Prompts you can try:
 
-1. Create a full-page screenshot of `example/page.html` and save it alongside.
-2. Make a second screenshot with viewport width 640 and height 1280px.
+### Screenshot of an URL
+
+- Take a screenshot of `https://example.com` and save it as `example-website.png`.
+- Make another screenshot with viewport width 640 and height 1280px.
+
+### Screenshot of a local file
+
+- Capture a full-page screenshot of `example/page.html` and save it alongside.
 
 ## Logging
 
@@ -88,6 +97,29 @@ Parameters:
 
 _Security constraints: all paths are resolved relative to `workspacePath`_
 
+### Tool: `create_webpage_url_screenshot`
+
+Create a screenshot of a web URL:
+
+- validates HTTP/HTTPS URLs only (rejects `file://`, `data://`, etc.)
+- implements retry logic with progressive timeouts (5s, 9s, 15s)
+- waits for `networkidle` and dynamic content loading
+- applies security headers (DNT, User-Agent) and safe browser settings
+- captures PNG (Buffer), supports full-page height
+- saves the image to a workspace-relative path
+- adds an in-memory Resource entry and returns a `screenshots://` URI
+
+Parameters:
+
+- `screenshotFilePath`: File where to save the screenshot (relative to the current workspace)
+- `url`: URL of the webpage to screenshot (HTTP/HTTPS only)
+- `workspacePath`: The current workspace absolute path
+- `viewport` (optional):
+  - `width: number` (default 1280)
+  - `height: number | "fullpage"` (default 768). Use `"fullpage"` to capture the entire page height.
+
+_Security features: protocol validation, security headers, download blocking, CSP respect, HTTPS error handling_
+
 ### Resource: `screenshots://{screenshotId}`
 
 Each created screenshot is added to an in-memory registry and exposed as a Resource with:
@@ -95,7 +127,7 @@ Each created screenshot is added to an in-memory registry and exposed as a Resou
 - `uri`: `screenshots://<screenshotId>`
 - `blob`: `data:image/png;base64,...`
 - `mimeType`: `image/png`
-- `text`: original webpage file path used for the screenshot
+- `text`: original webpage file path or URL used for the screenshot
 
 Note:
 
@@ -135,7 +167,9 @@ pnpm playwright install --with-deps --only-shell chromium
        "webpageScreenshot": {
          "command": "node",
          "args": ["/absolute/path/to/compiled/src/index.js", "--debug", "--pretty-print"],
-         "autoApprove": ["create_webpage_file_screenshot"]
+         "autoApprove": [
+            "create_webpage_file_screenshot", "create_webpage_url_screenshot"
+          ]
        }
      }
    }

@@ -6,6 +6,7 @@ import { createLogger } from '~/utils/logger';
 import { parseDebugArgs } from '~/utils/cli/parseDebugArgs';
 import { tryCatch } from '~/utils/tryCatch';
 import { schema as fileScreenshotSchema, handler as fileScreenshotHandler } from '~/tools/create_webpage_file_screenshot';
+import { schema as urlScreenshotSchema, handler as urlScreenshotHandler } from '~/tools/create_webpage_url_screenshot';
 import { handler as screenshotResourceHandler } from '~/resources/screenshots';
 
 const [parseErr, debugConfig] = tryCatch<Error, ReturnType<typeof parseDebugArgs>>(parseDebugArgs);
@@ -22,6 +23,7 @@ server.resource(
   new ResourceTemplate('screenshots://{screenshotId}', { list: undefined }),
   screenshotResourceHandler,
 );
+server.tool('create_webpage_url_screenshot', 'Create a screenshot of a webpage from a provided URL', urlScreenshotSchema, urlScreenshotHandler);
 server.tool(
   'create_webpage_file_screenshot',
   'Create a screenshot of a webpage opened as a local .html file',

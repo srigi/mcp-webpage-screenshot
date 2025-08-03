@@ -1,11 +1,6 @@
-import { Browser, chromium } from 'playwright';
-
+import { getBrowser } from '~/utils/browser';
 import { getLogger } from '~/utils/logger';
 import { tryCatch } from '~/utils/tryCatch';
-
-export class BrowserLaunchError extends Error {
-  name = 'BrowserLaunchError';
-}
 
 export class CreateWebpageFileScreenshotError extends Error {
   name = 'CreateWebpageFileScreenshotError';
@@ -21,20 +16,6 @@ type Options = {
 
 export const DEFAULT_VIEWPORT_WIDTH = 1280;
 export const DEFAULT_VIEWPORT_HEIGHT = 768;
-let browserInstance: Browser | undefined;
-
-async function getBrowser() {
-  if (browserInstance == null) {
-    const [launchErr, browser] = await tryCatch(chromium.launch({ headless: true }));
-    if (launchErr) {
-      throw new BrowserLaunchError(`Failed to launch browser: ${launchErr.message}`, { cause: launchErr });
-    }
-
-    browserInstance = browser;
-  }
-
-  return browserInstance;
-}
 
 export async function createWebpageFileScreenshot(webpageFilePath: string, options: Options): Promise<[Buffer, string]> {
   getLogger().debug('[🛠️ create_webpage_file_screenshot] util/createWebpageFileScreenshot called', { webpageFilePath, options });

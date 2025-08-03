@@ -27,14 +27,9 @@ export const schema = {
     .optional(),
 } as const;
 
-export const handler: ToolCallback<typeof schema> = async ({
-  screenshotFilePath: targetFilePath,
-  webpageFilePath,
-  workspacePath,
-  viewport,
-}) => {
+export const handler: ToolCallback<typeof schema> = async ({ screenshotFilePath, webpageFilePath, workspacePath, viewport }) => {
   const logger = getLogger();
-  logger.debug('[🛠️ create_webpage_file_screenshot] handler called', { targetFilePath, webpageFilePath, viewport });
+  logger.debug('[🛠️ create_webpage_file_screenshot] handler called', { screenshotFilePath, webpageFilePath, viewport });
 
   const fullWebpageFilePath = resolve(workspacePath, webpageFilePath);
   const [webpageFileScreenshotErr, screenshotResult] = await tryCatch<CreateWebpageFileScreenshotError, [Buffer, string]>(
@@ -61,8 +56,8 @@ export const handler: ToolCallback<typeof schema> = async ({
   const size = Math.round((screenshotBuffer.length / 1024) * 100) / 100; // size in kB
   const [screenshotUri] = addScreenshotResource(screenshotBuffer, mimeType, webpageFilePath);
 
-  writeFileSync(resolve(workspacePath, targetFilePath), screenshotBuffer);
-  logger.info(`[🛠️ create_webpage_file_screenshot] screenshot saved to ${targetFilePath}`, { size: `${size}kB` });
+  writeFileSync(resolve(workspacePath, screenshotFilePath), screenshotBuffer);
+  logger.info(`[🛠️ create_webpage_file_screenshot] screenshot saved to ${screenshotFilePath}`, { size: `${size}kB` });
 
   return {
     _meta: {
@@ -71,7 +66,7 @@ export const handler: ToolCallback<typeof schema> = async ({
     content: [
       {
         type: 'text' as const,
-        text: `Screenshot created and saved to ${targetFilePath} (${size}kB). Screenshot resource available at URI ${screenshotUri}`,
+        text: `Screenshot created and saved to ${screenshotFilePath} (${size}kB). Screenshot resource available at URI ${screenshotUri}`,
       },
     ],
   };
