@@ -20,22 +20,28 @@ export const schema = {
       width: z.number().default(DEFAULT_VIEWPORT_WIDTH),
       height: z.union([z.number(), z.literal('fullpage')]).default(DEFAULT_VIEWPORT_HEIGHT),
     })
+    .optional()
     .describe(
       `Viewport settings for the screenshot - an object with "width" and "height" properties.
-      Width must be a number in pixels.
-      Height can be either a number in pixels of literal value "fullpage".
-      Not needed for the default viewport size (${DEFAULT_VIEWPORT_WIDTH}×${DEFAULT_VIEWPORT_HEIGHT}px).`,
+    Width must be a number in pixels.
+    Height can be either a number in pixels of literal value "fullpage".
+    Not needed for the default viewport size (${DEFAULT_VIEWPORT_WIDTH}×${DEFAULT_VIEWPORT_HEIGHT}px).`,
     )
-    .default({ width: DEFAULT_VIEWPORT_WIDTH, height: DEFAULT_VIEWPORT_HEIGHT })
-    .optional(),
+    .default({ width: DEFAULT_VIEWPORT_WIDTH, height: DEFAULT_VIEWPORT_HEIGHT }),
+  colorScheme: z
+    .union([z.literal('light'), z.literal('dark'), z.literal('no-preference')])
+    .optional()
+    .nullable()
+    .default(null)
+    .describe('Color scheme to use for the screenshot'),
 } as const;
 
-export const handler: ToolCallback<typeof schema> = async ({ screenshotFilePath, url, workspacePath, viewport }) => {
+export const handler: ToolCallback<typeof schema> = async ({ screenshotFilePath, url, workspacePath, viewport, colorScheme = null }) => {
   const logger = getLogger();
-  logger.debug('[🛠️ create_webpage_url_screenshot] handler called', { screenshotFilePath, url, viewport });
+  logger.debug('[🛠️ create_webpage_url_screenshot] handler called', { screenshotFilePath, url, viewport, colorScheme });
 
   const [webpageUrlScreenshotErr, webpageUrlScreenshotResult] = await tryCatch<CreateWebpageUrlScreenshotError, [Buffer, string]>(
-    createWebpageUrlScreenshot(url, { viewport }),
+    createWebpageUrlScreenshot(url, { viewport, colorScheme }),
   );
   if (webpageUrlScreenshotErr) {
     logger.error(`[🛠️ create_webpage_url_screenshot] ${webpageUrlScreenshotErr.message}`, { error: webpageUrlScreenshotErr });

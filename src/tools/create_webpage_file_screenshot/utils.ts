@@ -1,5 +1,4 @@
 import { getBrowser } from '~/utils/browser';
-import { getLogger } from '~/utils/logger';
 import { tryCatch } from '~/utils/tryCatch';
 
 export class CreateWebpageFileScreenshotError extends Error {
@@ -7,7 +6,7 @@ export class CreateWebpageFileScreenshotError extends Error {
 }
 
 type Options = {
-  colorScheme?: 'light' | 'dark' | 'no-preference';
+  colorScheme: 'light' | 'dark' | 'no-preference' | null;
   viewport?: {
     width: number;
     height: number | 'fullpage';
@@ -17,16 +16,14 @@ type Options = {
 export const DEFAULT_VIEWPORT_WIDTH = 1280;
 export const DEFAULT_VIEWPORT_HEIGHT = 768;
 
-export async function createWebpageFileScreenshot(webpageFilePath: string, options: Options): Promise<[Buffer, string]> {
-  getLogger().debug('[🛠️ create_webpage_file_screenshot] util/createWebpageFileScreenshot called', { webpageFilePath, options });
-
+export async function createWebpageFileScreenshot(webpageFilePath: string, { colorScheme, viewport }: Options): Promise<[Buffer, string]> {
   const browser = await getBrowser();
   const [pageErr, page] = await tryCatch(
     browser.newPage({
-      colorScheme: options.colorScheme,
+      colorScheme,
       viewport: {
-        width: options.viewport?.width || DEFAULT_VIEWPORT_WIDTH,
-        height: typeof options.viewport?.height === 'number' ? options.viewport.height : DEFAULT_VIEWPORT_HEIGHT,
+        width: viewport?.width || DEFAULT_VIEWPORT_WIDTH,
+        height: typeof viewport?.height === 'number' ? viewport.height : DEFAULT_VIEWPORT_HEIGHT,
       },
     }),
   );
@@ -34,14 +31,15 @@ export async function createWebpageFileScreenshot(webpageFilePath: string, optio
     throw new CreateWebpageFileScreenshotError(`Failed to create browser page: ${pageErr.message}`, { cause: pageErr });
   }
 
-  const [screenshotErr, buffer] = await tryCatch(
-    page
-      .goto(`file://${webpageFilePath}`, { waitUntil: 'networkidle' })
-      .then(() => page.screenshot({ fullPage: options.viewport?.height === 'fullpage', type: 'png' })),
-  );
+  const [gotoErr] = await tryCatch(page.goto(`file://${webpageFilePath}`, { waitUntil: 'networkidle' }));
+  if (gotoErr) {
+    throw new CreateWebpageFileScreenshotError(`Failed to navigate to webpage: ${gotoErr.message}`, { cause: gotoErr });
+  }
+
+  const [screenshotErr, screenshotBuffer] = await tryCatch(page.screenshot({ fullPage: viewport?.height === 'fullpage', type: 'png' }));
   if (screenshotErr) {
     throw new CreateWebpageFileScreenshotError(`Failed to take screenshot: ${screenshotErr.message}`, { cause: screenshotErr });
   }
 
-  return [buffer, 'image/png'];
+  return [screenshotBuffer, 'image/png'];
 }

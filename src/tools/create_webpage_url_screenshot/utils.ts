@@ -12,14 +12,14 @@ export class CreateWebpageUrlScreenshotError extends Error {
 }
 
 type Options = {
-  colorScheme?: 'light' | 'dark' | 'no-preference';
+  colorScheme: 'light' | 'dark' | 'no-preference' | null;
   viewport?: {
     width: number;
     height: number | 'fullpage';
   };
 };
 
-export async function createWebpageUrlScreenshot(url: string, options: Options): Promise<[Buffer, string]> {
+export async function createWebpageUrlScreenshot(url: string, { colorScheme, viewport }: Options): Promise<[Buffer, string]> {
   const browser = await getBrowser();
   const logger = getLogger();
 
@@ -30,10 +30,10 @@ export async function createWebpageUrlScreenshot(url: string, options: Options):
 
   const [pageErr, page] = await tryCatch(
     browser.newPage({
-      colorScheme: options.colorScheme,
+      colorScheme,
       viewport: {
-        width: options.viewport?.width ?? 1280,
-        height: typeof options.viewport?.height === 'number' ? options.viewport.height : 768,
+        width: viewport?.width ?? 1280,
+        height: typeof viewport?.height === 'number' ? viewport.height : 768,
       },
       // security settings
       acceptDownloads: false,
@@ -60,7 +60,7 @@ export async function createWebpageUrlScreenshot(url: string, options: Options):
         if (gotoErr) throw gotoErr;
 
         // screenshot
-        const [screenshotErr, screenshot] = await tryCatch(page.screenshot({ fullPage: options.viewport?.height === 'fullpage', type: 'png' }));
+        const [screenshotErr, screenshot] = await tryCatch(page.screenshot({ fullPage: viewport?.height === 'fullpage', type: 'png' }));
         if (screenshotErr) throw screenshotErr;
 
         return screenshot;
