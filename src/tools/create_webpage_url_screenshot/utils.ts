@@ -1,6 +1,7 @@
 import { getBrowser } from '~/utils/browser';
 import { delay } from '~/utils/delay';
 import { getLogger } from '~/utils/logger';
+import { tryCatch } from '~/utils/tryCatch';
 
 export class CreateWebpageUrlScreenshotError extends Error {
   constructor(message: string, cause?: Error) {
@@ -27,61 +28,64 @@ export async function createWebpageUrlScreenshot(url: string, options: Options):
     throw new CreateWebpageUrlScreenshotError(`Input URL protocol is not supported! ${urlObj.protocol}. Only HTTP and HTTPS are supported.`);
   }
 
-  const page = await browser.newPage({
-    colorScheme: options.colorScheme,
-    viewport: {
-      width: options.viewport?.width ?? 1280,
-      height: typeof options.viewport?.height === 'number' ? options.viewport.height : 768,
-    },
-    // security settings
-    acceptDownloads: false,
-    bypassCSP: false,
-    extraHTTPHeaders: { 'User-Agent': 'Mozilla/5.0 (compatible; MCP-WebpageScreenshot/1.0)' },
-    ignoreHTTPSErrors: true,
-    javaScriptEnabled: true,
-  });
+  const [pageErr, page] = await tryCatch(
+    browser.newPage({
+      colorScheme: options.colorScheme,
+      viewport: {
+        width: options.viewport?.width ?? 1280,
+        height: typeof options.viewport?.height === 'number' ? options.viewport.height : 768,
+      },
+      // security settings
+      acceptDownloads: false,
+      bypassCSP: false,
+      extraHTTPHeaders: { 'User-Agent': 'Mozilla/5.0 (compatible; MCP-WebpageScreenshot/1.0)' },
+      ignoreHTTPSErrors: true,
+      javaScriptEnabled: true,
+    }),
+  );
+  if (pageErr) {
+    throw new CreateWebpageUrlScreenshotError(`Failed to create a new page: ${pageErr.message}`, pageErr);
+  }
 
+  const retryDelays = [5000, 9000, 15000];
+  let lastError: Error | undefined;
+  let index = 0;
   try {
-    // retry logic
-    const retryDelays = [5000, 9000, 15000];
-    let lastError: Error | undefined;
+    do {
+      logger.debug(`[🛠️ create_webpage_url_screenshot] Attempt ${index + 1} to navigate to ${url}`);
 
-    let attempt = 0;
-    for (; attempt < retryDelays.length; attempt++) {
-      try {
-        logger.debug(`[🛠️ create_webpage_url_screenshot] Attempt ${attempt + 1} to navigate to ${url}`);
+      const task = (async () => {
+        // navigate
+        const [gotoErr] = await tryCatch(() => page.goto(url, { waitUntil: 'networkidle', timeout: retryDelays[index] }));
+        if (gotoErr) throw gotoErr;
 
-        // Navigate with timeout and wait for network idle
-        await page.goto(url, {
-          waitUntil: 'networkidle',
-          timeout: retryDelays[attempt],
-        });
+        // screenshot
+        const [screenshotErr, screenshot] = await tryCatch(page.screenshot({ fullPage: options.viewport?.height === 'fullpage', type: 'png' }));
+        if (screenshotErr) throw screenshotErr;
 
-        // Additional wait for dynamic content
-        await page.waitForTimeout(1000);
-
-        const screenshotBuffer = await page.screenshot({ fullPage: options.viewport?.height === 'fullpage', type: 'png' });
-
-        // Generate screenshot ID based on URL and timestamp
+        return screenshot;
+      })();
+      const deadline = delay(retryDelays[index]).then(() => {
+        throw new Error(`Timeout exceeded after ${retryDelays[index]}ms`);
+      });
+      const [taskErr, screenshotBuffer] = await tryCatch<Error, Buffer>(Promise.race([task, deadline]));
+      if (!taskErr) {
+        logger.debug(`[🛠️ create_webpage_url_screenshot] Successfully captured screenshot of ${url}`);
         const screenshotId = `url_${Buffer.from(url).toString('base64').replace(/[/+=]/g, '_')}_${Date.now()}`;
 
-        logger.debug(`[🛠️ create_webpage_url_screenshot] Successfully captured screenshot of ${url}`);
         return [screenshotBuffer, screenshotId];
-      } catch (error) {
-        lastError = error as Error;
-        logger.warn(`[🛠️ create_webpage_url_screenshot] Attempt ${attempt + 1} failed for ${url}: ${error}`);
-
-        if (attempt < retryDelays.length - 1) {
-          await delay(1000).then(() => attempt++);
-        }
       }
-    }
+
+      lastError = taskErr;
+      logger.warn(`[🛠️ create_webpage_url_screenshot] Attempt ${index + 1} failed for ${url}: ${taskErr.message}`);
+      index++;
+    } while (index < retryDelays.length);
 
     throw new CreateWebpageUrlScreenshotError(
-      `Failed to capture screenshot after ${attempt} attempts. Last error: ${lastError?.message}`,
-      lastError || undefined,
+      `Failed to capture screenshot after ${index} attempts. Last error: ${lastError?.message}`,
+      lastError,
     );
   } finally {
-    await page.close();
+    page.close();
   }
 }
