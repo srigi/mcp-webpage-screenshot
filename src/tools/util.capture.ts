@@ -1,5 +1,5 @@
 import type { Page } from 'playwright';
-import { getBrowser } from '~/utils/browser';
+import { getBrowser } from './utils.browser';
 import { tryCatch } from '~/utils/tryCatch';
 
 class CaptureScreenshotError extends Error {

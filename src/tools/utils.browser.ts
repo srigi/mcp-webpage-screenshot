@@ -1,6 +1,6 @@
 import { Browser, chromium } from 'playwright';
 
-import { tryCatch } from './tryCatch';
+import { tryCatch } from '~/utils/tryCatch';
 
 export class BrowserLaunchError extends Error {
   name = 'BrowserLaunchError';
