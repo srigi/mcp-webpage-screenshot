@@ -1,209 +1,124 @@
 # Code Guidelines — Webpage Screenshot MCP
 
-This document summarizes the repository’s conventions for code style, quality checks, structure, and import configuration. Follow these guidelines when contributing new code to keep the codebase consistent.
+This document front‑loads the most actionable rules for contributing code. Tool/resource names remain as code strings.
 
-## 1) Language, Runtime, Package Manager
+## 1) Quickstart — top rules for writing code here
 
-- Language: TypeScript 5.8 in strict mode
-- Runtime: Node.js 20+
-- Package Manager: pnpm 10.x
-- Build output:
-  - Production binary is bundled with Vercel ncc into `dist/cli.js` and made executable
-  - TypeScript can also be compiled with `tsc` for development (emits JS next to TS; these JS files are ignored by Git)
+- Only read and modify TypeScript sources in `src/**/*.ts`. Ignore `src/**/*.js` — they are compiled artifacts, `.gitignore`d, and not the source of truth.
+- Imports:
+  - Use `~/*` alias for internal modules (e.g., `~/resources/screenshots`).
+  - For sibling files in the same folder, use relative paths (`./...`) — do not use the alias for siblings.
+  - Use `node:` prefix for built‑ins (e.g., `node:path`, `node:fs`).
+  - Prefer `import type` when it clarifies intent.
+- Import ordering and grouping:
+  - Group: external packages first (those starting with `@` first), then internal `~` alias imports, then local relative imports.
+  - Order alphabetically by module name within each group. Separate groups with a blank line.
+- Error handling: prefer [`tryCatch()`](src/utils/tryCatch.ts) utility instead of try/catch, returning tuple `[error]` or `[null, data]`; throw named domain errors when necessary.
+- Logging: get your logger instance with [`logger.getLogger()`](src/utils/logger.ts), pass the `actor` argument identifying the caller of the logging mechanism. Important: you must call the `getLogger()` only during the runtime, it cannot be called in the module scope!
+- Browser: get shared browser instance via [`browser.getBrowser()`](src/utils/browser.ts); handle `BrowserLaunchError`.
+- Tool inputs/outputs: validate with Zod v3 `schema`
+- Return structured errors with `_meta: { success: false, error: { message, errorCode }}`.
+- Testing: write `*.test.ts` with Vitest (Node env); mirror path alias `~`.
+- After every code-change, do a type-check (`pnpm tsc`) and lint the code (`pnpm lint`).
+- Reformat with `pnpm lint:fix` before commits; Code formatting is enforced via Prettier through ESLint.
 
-## 2) Code Style and Formatting
+## 2) Tooling and workflow
 
-Formatting: using Prettier, see [.prettierrc.mjs](.prettierrc.mjs:1) — `printWidth: 144`, `singleQuote: true`
+- Formatting: Prettier (see [.prettierrc.mjs](.prettierrc.mjs:1)) — `printWidth: 144`, `singleQuote: true`.
+- Linting: ESLint flat config with TypeScript; Prettier integration (`eslint-config-prettier`) and `eslint-plugin-prettier` surface formatting as warnings (`prettier/prettier: warn`).
+- Commands:
+  - `pnpm lint` / `pnpm lint:fix` — report and fix issues, apply formatting.
+  - `pnpm test` — run Vitest once in Node env.
+  - `pnpm tsc` — type‑check only.
+  - `pnpm build` — production bundle using `@vercel/ncc` → single `dist/cli.js` (executable).
+  - `pnpm build:tsc` — emit JS next to TS (development only; outputs are ignored by Git).
+  - `pnpm dev` — same as `pnpm build:tsc`, but in watch mode (expect the developer is using this behind the scene, you should not!)
+  - you could also check the final product by running `pnpm build && pnpm start`. In case of success, expect no output and server to be listening (the process keeps running)
+- Artifacts: `dist` and `src/**/*.js` are generated; do not edit them.
 
-ESLint integrates Prettier and defers conflicting stylistic rules:
+## 3) Project structure
 
-- ESLint flat config (v9+), with TypeScript via `typescript-eslint`
-- Prettier integration is last to disable stylistic conflicts (`eslint-config-prettier`) and to surface formatting as warnings via `eslint-plugin-prettier` (`prettier/prettier: warn`)
+- `src/index.ts`: server entry; sets up logger, registers tools/resources, connects over stdio.
+- `src/tools/<tool>/index.ts`: exports `schema` and `handler`; heavy logic in `utils.ts` when needed.
+- `src/resources/<name>/`: resource registries and read handlers.
+- `src/utils/`: shared utilities (see below).
+- `src/utils/cli/`: CLI parsers and helpers.
 
-Required actions:
+## 4) Utils overview
 
-- `pnpm lint` to report issues
-- `pnpm lint:fix` to auto-fix and apply formatting
-
-## 3) TypeScript Configuration and Import Aliases
-
-Compiler highlights (see [tsconfig.json](tsconfig.json:1)):
-
-- Target `es2024`; Module/Resolution `NodeNext`
-- `strict: true`, `esModuleInterop: true`, `skipLibCheck: true`, `resolveJsonModule: true`
-- Alias: `~/*` → `./src/*` (configured in tsconfig and mirrored in Vitest)
-
-Note on imports: when importing a sibling local file(s), don't use aliases!. Import with a relative path instead (e.g., `./utils`).
-
-## 4) Project Structure
-
-High-level layout:
-
-- `src/index.ts`: MCP server entry; setups logger, wires tools and resources; connects over stdio and logs ready
-- `src/tools/...`: One directory per tool, `index.ts` exports `schema` and `handler`, heavy logic in `utils.ts`
-- `src/resources/...`: Resource registries and read handlers
-- `src/utils/...`: Shared utilities (`logger`, `tryCatch`, etc.)
-- `src/utils/cli/...`: CLI parsers and helpers
-
-### Key modules:
-
-### Server Bootstrap
-
-- **Entry point** (see [src/index.ts](src/index.ts:1)): registers MCP Tools and Resource(s)
-
-#### MCP Tools
-
-- **[`create_webpage_file_screenshot`](src/tools/create_webpage_file_screenshot)**: screenshot local HTML file; write PNG relative to current workspace; also adds in‑memory MCP Resource
-- **[`create_webpage_url_screenshot`](src/tools/create_webpage_url_screenshot)**: screenshot a web URL; write PNG relative to current workspace; also adds in‑memory MCP Resource
-
-#### Resources
-
-- **`screenshots://{screenshotId}` (resource template)** (see [src/resources/screenshots](src/resources/screenshots)): in‑memory Map and read handler for accessing captured screenshots via URI
-
-#### Utils
-
-- **[`src/utils/browser.ts`](src/utils/browser.ts)**: shared Chromium browser instance with lazy initialization and error handling
-
-Organizational guidance:
-
-- New tools under `src/tools/<tool_name>/` with `index.ts` and optional `utils.ts`
-- Shared code in `src/utils/`
-- Resource code in `src/resources/<name>/`
+- **[`src/utils/browser.ts`](src/utils/browser.ts:1)** — singleton Chromium with lazy initialization
+  - Exports: `BrowserLaunchError` class, `getBrowser()`
+  - launches headless Chromium once; returns browser instance;
+- **[`src/utils/delay.ts`](src/utils/delay.ts:1)** — `await delay(ms)` sleep helper
+- **[`src/utils/env.ts`](src/utils/env.ts)** — zod‑validated ENVs
+- Exports: `env`; define your ENV vars here, so without them the code won't compile
+- **[`src/utils/logger.ts`](src/utils/logger.ts:1)** — Winston logger
+  - Exports: `createLogger(opts)`, `getLogger(presenter?)`
+  - Modes: silent blackhole transport when `--debug` disabled; JSON file output when enabled; pretty print optional
+- **[`src/utils/tryCatch.ts`](src/utils/tryCatch.ts:1)** — tuple‑based error helper
+  - Exports: `tryCatch(op)`; returns `[error]` or `[null, data]`, awaitable
 
 ## 5) Logging
 
-Centralized via winston:
+- User instructions about logging are in [README.md](README.md#logging), you should only focus on:
+  - correctly grabbing the logger instance (`getLogger()` cannot be called in the module scope)
+  - putting useful/correct logs to correct places
+- Use scoped prefixes like `[🛠️ NAME_OF_THE_TOOL]`, `[📚 RESOURCE_URI]`; replace `NAME_OF_THE_TOOL`, `RESOURCE_URI` with actual values
 
-- `createLogger` initializes based on CLI flags; `getLogger` retrieves the instance or creates child loggers with `actor` metadata
-- Flags: `--debug` enables logging; without path writes `debug.log` to CWD; with absolute path writes there; `--pretty-print` formats JSON
+## 6) Error handling
 
-Behavior:
+- Prefer `tryCatch()` for streamlined error handling; avoid using `try/catch` blocks!
+- Throw named domain errors where appropriate (e.g., `BrowserLaunchError`, `CreateWebpageFileScreenshotError`, `CreateWebpageUrlScreenshotError`).
+- Map errors to structured MCP responses: content with `_meta` object and user‑readable message.
 
-- No `--debug`: logs discarded via a blackhole stream
-- With `--debug`: file transport with JSON format (pretty if requested)
+## 7) MCP tools and resources
 
-Usage rules:
+- Tools must export `schema` (zod with `.describe()` and defaults) and `handler: ToolCallback<typeof schema>`.
+- Validate inputs; log start/end and errors with scoped prefixes.
+- Errors: return content with `_meta` object and typed error details.
+- Resources:
+  - Maintain in‑memory registry (`Map`) with typed entries.
+  - Read handler validates URI variables and returns meaningful errors or typed `contents`.
+  - Template: **`screenshots://{screenshotId}`** (see [src/resources/screenshots](src/resources/screenshots)).
 
-- Initialize once in entrypoint; reuse `getLogger()` across modules
-- Use scoped prefixes like `[🛠️ create_webpage_file_screenshot]`, `[🛠️ create_webpage_url_screenshot]`, and `[📚 screenshots://{screenshotId}]`
+## 8) Browser management and security
 
-## 6) Error Handling
-
-Pattern with tuple results:
-
-- Use `tryCatch` which returns `[null, data]` on success or `[error]` on failure; callers branch explicitly
-- Throw domain errors with clear names where appropriate (e.g., `BrowserLaunchError`, `CreateWebpageFileScreenshotError`, `CreateWebpageUrlScreenshotError`) and map them to structured MCP responses with `_meta.success: false` and user‑readable messages
-
-## 7) Browser Management and Security
-
-### Browser Instance Management
-
-- **Shared browser instance** (see [src/utils/browser.ts](src/utils/browser.ts:1)): singleton Chromium browser with lazy initialization
-- **Error handling**: `BrowserLaunchError` for launch failures with proper cleanup
-- **Resource management**: browser instance reused across all screenshot operations
-
-### Security Guidelines for URL Screenshots
-
-- **Protocol validation**: only HTTP/HTTPS URLs accepted, reject `file://`, `data://`, etc.
-- **Security headers**: set `DNT: 1` (Do Not Track) and custom User-Agent
-- **Browser security**: disable downloads (`acceptDownloads: false`), respect CSP (`bypassCSP: false`)
-- **HTTPS handling**: don't ignore HTTPS errors (`ignoreHTTPSErrors: false`)
-- **Timeout protection**: progressive timeouts (5s, 8s, 12s) prevent hanging on malicious/slow sites
-- **Network isolation**: each screenshot uses isolated page context
-
-### Tool Selection Guide
-
-| Feature         | File Screenshot        | URL Screenshot                      |
-| --------------- | ---------------------- | ----------------------------------- |
-| **Input**       | Local HTML file path   | HTTP/HTTPS URL                      |
-| **Protocol**    | `file://`              | `http://`, `https://`               |
-| **Retry Logic** | Basic navigation       | 3-attempt with progressive timeouts |
-| **Security**    | Local file access only | URL validation, security headers    |
-| **Use Cases**   | Static HTML, testing   | Live websites, external content     |
-| **Network**     | No network required    | Requires internet connection        |
-
-## 8) Tool and Resource Conventions (MCP)
-
-Tools:
-
-- Export `schema` (zod with `.describe()` and defaults) and `handler: ToolCallback<typeof schema>`
-- Validate inputs and set sensible defaults
-- Log start/end and errors with scoped prefixes
-- On errors, return content with `_meta.success: false` and typed error details
-
-Resources:
-
-- Maintain in‑memory registry (`Map`) with typed entries
-- Read handler validates URI variables, returns meaningful errors when missing/not found, or returns typed `contents` when found
+- Instance: shared singleton from [`src/utils/browser.ts`](src/utils/browser.ts:1).
+- URL security:
+  - Accept only HTTP/HTTPS schemes; reject `file://`, `data://`, etc.
+  - Progressive timeouts (e.g., 5s, 8s, 12s); isolate each screenshot in its own page context.
 
 ## 9) Testing
 
-- Vitest is configured (Node env), test files `src/**/*.test.ts`
-- Excludes `dist`, `my_resources`, `node_modules`, and `**/*.js`
-- Path alias `~` is mirrored in `vitest.config.ts` to match tsconfig
+- Vitest in Node env; tests live next to sources as `*.test.ts`
+- Test runner configuration in `vitest.config.ts`
 
-Guidance:
+## 10) Adding a new tool — checklist
 
-- Co‑locate tests with `.test.ts`
-- Use alias imports in tests consistently
-
-## 10) Import Rules and Examples
-
-- Prefer `~` alias for internal imports (`~/...`)
-- For local sibling files, import using relative paths (`./...`)
-- Use `node:` prefix for built‑ins (`node:path`, `node:fs`, `node:process`, `node:stream`)
-- Use `import type` for type‑only imports where it clarifies intent
-
-## 11) Scripts and Developer Workflow
-
-Core scripts and what they do (see [package.json](package.json:28)):
-
-- `pnpm build` — production bundle using `@vercel/ncc`. Produces a single `dist/cli.js` with a shebang and sets it executable. This is the JS file executed as the MCP server binary.
-- `pnpm build:tsc` — compiles all `.ts` files to `.js` files alongside the sources and then runs `tsc-alias` to rewrite path aliases. Used during development. Emitted `.js` artifacts live next to `.ts` and are `.gitignore`d; developers should not commit or hand‑edit them.
-- `pnpm dev` — development watch loop: effectively `build:tsc` once and then `chokidar` watches `src/**/*.ts` to re‑run `tsc && tsc-alias` on change.
-- `pnpm tsc` — type‑check only (`-noEmit`), similar to `build:tsc` but does not write any `.js` files.
-- `pnpm lint` / `pnpm lint:fix` — run ESLint (with Prettier integration) and optionally autofix/format.
-- `pnpm test` — run Vitest once in Node environment.
-- `pnpm postinstall` hook — installs Playwright Chromium shell browser: `playwright install --with-deps --only-shell chromium`.
-
-Workflow tips:
-
-- For local development, run `pnpm dev` and point your IDE MCP config to the compiled `src/index.js` if needed (see README). Restart the MCP in the IDE after changes if it caches the server process.
-- For distribution or end‑to‑end testing of the bundled binary, run `pnpm build` and execute `dist/cli.js`.
-
-## 12) Folder and File Conventions
-
-- Generated outputs (`dist`, logs) and `node_modules` are excluded from lint/tests; `src/**/*.js` is ignored in ESLint/tests in favor of TS
-- Keep public entry files (`index.ts`) thin; move heavy logic to `utils.ts` or sibling modules
-
-## 13) Adding a New Tool — Checklist
-
-1. Create `src/tools/<new_tool>/`
+1. Create `src/tools/<new_tool>/`.
 2. `index.ts`:
-   - Export `schema` (zod) with `.describe()` and defaults
-   - Export `handler: ToolCallback<typeof schema>`
-   - Wrap async work with `tryCatch`
-   - Log with prefix `[🛠️ <new_tool>]`
-3. Add `utils.ts` for heavy logic/I/O
-4. Register tool in `src/index.ts`
-5. Add tests `src/tools/<new_tool>/*.test.ts`
-6. Run `pnpm lint:fix` and `pnpm test`
+   - Export `schema` (zod) with `.describe()` and defaults.
+   - Export `handler: ToolCallback<typeof schema>`.
+   - Wrap I/O and 3rd party function calls with `tryCatch()` and handle errors right there.
+   - Add debug/info/warn/error logging with scoped prefix.
+   - keep the index file lean and lightweight, outsource the heavy lifting to `./utils.ts`
+3. Register the tool in `src/index.ts`.
 
-## 14) Adding a New Resource — Checklist
+## 11) Adding a new resource — checklist
 
-1. Create `src/resources/<name>/`
-2. Define types and in‑memory registry
-3. Implement `handler(uri, variables)` with validation and helpful errors
-4. Export helpers to add/update entries
-5. Register with `ResourceTemplate('scheme://{vars}', { list: undefined })` in `src/index.ts`
-6. Add tests and logging
+1. Create `src/resources/<name>/`.
+2. Define types and in‑memory registry.
+3. Implement `handler(uri, variables)` with validation and helpful errors.
+4. Export helpers to add/update entries.
+5. Register with `ResourceTemplate('scheme://{vars}', { list: undefined })` in `src/index.ts`.
 
-## 15) Commit Hygiene
+## 12) Commit hygiene recap
 
-- Ensure Prettier formatting passes (ESLint will warn via `prettier/prettier`)
-- Resolve all TypeScript errors (`pnpm tsc`)
-- Keep imports ordered and grouped
-  - alphabetically ordered by the name of the module name (if the name includes `@` at the beginning, put them first)
-  - new-line separating 3rd party imports from internal imports
-  - internal imports use `~` alias, then follows imports from local sibling files
-- Prefer named exports and small, focused modules
+- Ensure Prettier formatting passes (enforced via ESLint rule `prettier/prettier`).
+- Resolve all TypeScript errors with `pnpm tsc`.
+- Keep imports ordered and grouped:
+  - `@...` packages first, then other external packages
+  - internal `~` alias imports
+  - local relative imports
+  - separate groups with a blank line; order alphabetically within groups
+- Prefer named exports and small, focused modules.
