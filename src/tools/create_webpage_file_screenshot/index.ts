@@ -5,9 +5,10 @@ import { z } from 'zod';
 
 import { CreateWebpageFileScreenshotError, createWebpageFileScreenshot } from './utils.js';
 import { DEFAULT_VIEWPORT_WIDTH, DEFAULT_VIEWPORT_HEIGHT } from '../util.capture.js';
+import { addScreenshot as addScreenshotResource } from '~/resources/screenshots';
 import { getLogger } from '~/utils/logger';
 import { tryCatch } from '~/utils/tryCatch';
-import { addScreenshot as addScreenshotResource } from '~/resources/screenshots';
+import { respondError, respondSuccess } from '../util.mcpRespond';
 
 export const schema = {
   screenshotFilePath: z.string().describe('File where to save the screenshot (relative to the current workspace)'),
@@ -41,28 +42,14 @@ export const handler: ToolCallback<typeof schema> = async ({
   viewport,
   colorScheme = null,
 }) => {
-  const logger = getLogger();
-  logger.debug('[🛠️ create_webpage_file_screenshot] handler called', { screenshotFilePath, webpageFilePath, viewport, colorScheme });
+  getLogger().debug('[🛠️ create_webpage_file_screenshot] handler called', { screenshotFilePath, webpageFilePath, viewport, colorScheme });
 
   const fullWebpageFilePath = resolve(workspacePath, webpageFilePath);
-  const [webpageFileScreenshotErr, screenshotResult] = await tryCatch<CreateWebpageFileScreenshotError, [Buffer, string]>(
+  const [screenshotErr, screenshotResult] = await tryCatch<CreateWebpageFileScreenshotError, [Buffer, string]>(
     createWebpageFileScreenshot(fullWebpageFilePath, { viewport, colorScheme }),
   );
-  if (webpageFileScreenshotErr) {
-    logger.error(`[🛠️ create_webpage_file_screenshot] ${webpageFileScreenshotErr.message}`, { error: webpageFileScreenshotErr });
-
-    return {
-      _meta: {
-        error: { type: webpageFileScreenshotErr.name, message: webpageFileScreenshotErr.message },
-        success: false,
-      },
-      content: [
-        {
-          type: 'text' as const,
-          text: `create_webpage_file_screenshot error: ${webpageFileScreenshotErr.message}`,
-        },
-      ],
-    };
+  if (screenshotErr) {
+    return respondError(screenshotErr, '[🛠️ create_webpage_file_screenshot]');
   }
 
   const [screenshotBuffer, mimeType] = screenshotResult;
@@ -71,33 +58,11 @@ export const handler: ToolCallback<typeof schema> = async ({
 
   const [writeFileErr] = tryCatch(() => writeFileSync(resolve(workspacePath, screenshotFilePath), screenshotBuffer));
   if (writeFileErr) {
-    logger.error(`[🛠️ create_webpage_file_screenshot] ${writeFileErr.message}`, { error: writeFileErr });
-
-    return {
-      _meta: {
-        error: { type: writeFileErr.constructor.name, message: writeFileErr.message },
-        success: false,
-      },
-      content: [
-        {
-          type: 'text' as const,
-          text: `Error writing screenshot file: ${writeFileErr.message}`,
-        },
-      ],
-    };
+    return respondError(writeFileErr, '[🛠️ create_webpage_file_screenshot]');
   }
 
-  logger.info(`[🛠️ create_webpage_file_screenshot] screenshot saved to ${screenshotFilePath}`, { size: `${sizeKB}kB` });
-
-  return {
-    _meta: {
-      success: true,
-    },
-    content: [
-      {
-        type: 'text' as const,
-        text: `Screenshot created and saved to ${screenshotFilePath} (${sizeKB}kB). Screenshot resource available at URI ${screenshotUri}`,
-      },
-    ],
-  };
+  return respondSuccess(
+    `File screenshot captured to ${screenshotFilePath} (${sizeKB}kB). Screenshot resource available at URI ${screenshotUri}.`,
+    '[🛠️ create_webpage_url_screenshot]',
+  );
 };
