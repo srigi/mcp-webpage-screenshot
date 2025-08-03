@@ -5,7 +5,7 @@ import { z } from 'zod';
 
 import { CreateWebpageFileScreenshotError, DEFAULT_VIEWPORT_HEIGHT, DEFAULT_VIEWPORT_WIDTH, createWebpageFileScreenshot } from './utils.js';
 import { getLogger } from '~/utils/logger';
-import { tryCatch } from '~/utils/tryCatch.js';
+import { tryCatch } from '~/utils/tryCatch';
 import { addScreenshot as addScreenshotResource } from '~/resources/screenshots';
 
 export const schema = {
