@@ -1,26 +1,13 @@
-import { getBrowser } from '~/utils/browser';
 import { delay } from '~/utils/delay';
 import { getLogger } from '~/utils/logger';
 import { tryCatch } from '~/utils/tryCatch';
+import { type CaptureScreenshotOptions, captureScreenshot, createBrowserPage } from '../util.capture';
 
 export class CreateWebpageUrlScreenshotError extends Error {
-  constructor(message: string, cause?: Error) {
-    super(message);
-    this.name = 'CreateWebpageUrlScreenshotError';
-    this.cause = cause;
-  }
+  name = 'CreateWebpageUrlScreenshotError';
 }
 
-type Options = {
-  colorScheme: 'light' | 'dark' | 'no-preference' | null;
-  viewport?: {
-    width: number;
-    height: number | 'fullpage';
-  };
-};
-
-export async function createWebpageUrlScreenshot(url: string, { colorScheme, viewport }: Options): Promise<[Buffer, string]> {
-  const browser = await getBrowser();
+export async function createWebpageUrlScreenshot(url: string, { colorScheme, viewport }: CaptureScreenshotOptions): Promise<[Buffer, string]> {
   const logger = getLogger();
 
   const urlObj = new URL(url);
@@ -29,13 +16,9 @@ export async function createWebpageUrlScreenshot(url: string, { colorScheme, vie
   }
 
   const [pageErr, page] = await tryCatch(
-    browser.newPage({
+    createBrowserPage({
       colorScheme,
-      viewport: {
-        width: viewport?.width ?? 1280,
-        height: typeof viewport?.height === 'number' ? viewport.height : 768,
-      },
-      // security settings
+      viewport,
       acceptDownloads: false,
       bypassCSP: false,
       extraHTTPHeaders: { 'User-Agent': 'Mozilla/5.0 (compatible; MCP-WebpageScreenshot/1.0)' },
@@ -60,7 +43,7 @@ export async function createWebpageUrlScreenshot(url: string, { colorScheme, vie
         if (gotoErr) throw gotoErr;
 
         // screenshot
-        const [screenshotErr, screenshot] = await tryCatch(page.screenshot({ fullPage: viewport?.height === 'fullpage', type: 'png' }));
+        const [screenshotErr, screenshot] = await tryCatch(captureScreenshot(page, { viewport }));
         if (screenshotErr) throw screenshotErr;
 
         return screenshot;
@@ -71,9 +54,8 @@ export async function createWebpageUrlScreenshot(url: string, { colorScheme, vie
       const [taskErr, screenshotBuffer] = await tryCatch<Error, Buffer>(Promise.race([task, deadline]));
       if (!taskErr) {
         logger.debug(`[🛠️ create_webpage_url_screenshot] Successfully captured screenshot of ${url}`);
-        const screenshotId = `url_${Buffer.from(url).toString('base64').replace(/[/+=]/g, '_')}_${Date.now()}`;
 
-        return [screenshotBuffer, screenshotId];
+        return [screenshotBuffer, 'image/png'];
       }
 
       lastError = taskErr;

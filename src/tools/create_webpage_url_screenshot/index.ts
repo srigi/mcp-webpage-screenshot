@@ -4,12 +4,10 @@ import { resolve } from 'node:path';
 import { z } from 'zod';
 
 import { CreateWebpageUrlScreenshotError, createWebpageUrlScreenshot } from './utils';
+import { DEFAULT_VIEWPORT_WIDTH, DEFAULT_VIEWPORT_HEIGHT } from '../util.capture.js';
 import { getLogger } from '~/utils/logger';
 import { tryCatch } from '~/utils/tryCatch';
 import { addScreenshot as addScreenshotResource } from '~/resources/screenshots';
-
-const DEFAULT_VIEWPORT_WIDTH = 1280;
-const DEFAULT_VIEWPORT_HEIGHT = 768;
 
 export const schema = {
   screenshotFilePath: z.string().describe('File where to save the screenshot (relative to the current workspace)'),
@@ -40,7 +38,7 @@ export const handler: ToolCallback<typeof schema> = async ({ screenshotFilePath,
   const logger = getLogger();
   logger.debug('[🛠️ create_webpage_url_screenshot] handler called', { screenshotFilePath, url, viewport, colorScheme });
 
-  const [webpageUrlScreenshotErr, webpageUrlScreenshotResult] = await tryCatch<CreateWebpageUrlScreenshotError, [Buffer, string]>(
+  const [webpageUrlScreenshotErr, screenshotResult] = await tryCatch<CreateWebpageUrlScreenshotError, [Buffer, string]>(
     createWebpageUrlScreenshot(url, { viewport, colorScheme }),
   );
   if (webpageUrlScreenshotErr) {
@@ -59,10 +57,14 @@ export const handler: ToolCallback<typeof schema> = async ({ screenshotFilePath,
     };
   }
 
-  const [screenshotBuffer] = webpageUrlScreenshotResult;
+  const [screenshotBuffer, mimeType] = screenshotResult;
+  const sizeKB = Math.round((screenshotBuffer.length / 1024) * 100) / 100; // size in kB
+  const [screenshotUri] = addScreenshotResource(screenshotBuffer, mimeType, url);
+
   const [writeFileErr] = tryCatch(() => writeFileSync(resolve(workspacePath, screenshotFilePath), screenshotBuffer));
   if (writeFileErr) {
     logger.error(`[🛠️ create_webpage_url_screenshot] ${writeFileErr.message}`, { error: writeFileErr });
+
     return {
       _meta: {
         error: { type: writeFileErr.constructor.name, message: writeFileErr.message },
@@ -77,9 +79,7 @@ export const handler: ToolCallback<typeof schema> = async ({ screenshotFilePath,
     };
   }
 
-  const size = Math.round(screenshotBuffer.length / 1024);
-  const [screenshotUri] = addScreenshotResource(screenshotBuffer, 'image/png', url);
-  logger.info(`[🛠️ create_webpage_url_screenshot] screenshot saved to ${screenshotFilePath}`, { size: `${size}kB` });
+  logger.info(`[🛠️ create_webpage_url_screenshot] screenshot saved to ${screenshotFilePath}`, { size: `${sizeKB}kB` });
 
   return {
     _meta: {
@@ -88,7 +88,7 @@ export const handler: ToolCallback<typeof schema> = async ({ screenshotFilePath,
     content: [
       {
         type: 'text',
-        text: `Screenshot of ${url} saved to ${screenshotFilePath} (${size}kB). You can access the screenshot via the resource "${screenshotUri}".`,
+        text: `Screenshot of ${url} saved to ${screenshotFilePath} (${sizeKB}kB). You can access the screenshot via the resource "${screenshotUri}".`,
       },
     ],
   };

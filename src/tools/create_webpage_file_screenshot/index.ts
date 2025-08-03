@@ -3,7 +3,8 @@ import { writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { z } from 'zod';
 
-import { CreateWebpageFileScreenshotError, DEFAULT_VIEWPORT_HEIGHT, DEFAULT_VIEWPORT_WIDTH, createWebpageFileScreenshot } from './utils.js';
+import { CreateWebpageFileScreenshotError, createWebpageFileScreenshot } from './utils.js';
+import { DEFAULT_VIEWPORT_WIDTH, DEFAULT_VIEWPORT_HEIGHT } from '../util.capture.js';
 import { getLogger } from '~/utils/logger';
 import { tryCatch } from '~/utils/tryCatch';
 import { addScreenshot as addScreenshotResource } from '~/resources/screenshots';
@@ -65,11 +66,28 @@ export const handler: ToolCallback<typeof schema> = async ({
   }
 
   const [screenshotBuffer, mimeType] = screenshotResult;
-  const size = Math.round((screenshotBuffer.length / 1024) * 100) / 100; // size in kB
+  const sizeKB = Math.round((screenshotBuffer.length / 1024) * 100) / 100; // size in kB
   const [screenshotUri] = addScreenshotResource(screenshotBuffer, mimeType, webpageFilePath);
 
-  writeFileSync(resolve(workspacePath, screenshotFilePath), screenshotBuffer);
-  logger.info(`[🛠️ create_webpage_file_screenshot] screenshot saved to ${screenshotFilePath}`, { size: `${size}kB` });
+  const [writeFileErr] = tryCatch(() => writeFileSync(resolve(workspacePath, screenshotFilePath), screenshotBuffer));
+  if (writeFileErr) {
+    logger.error(`[🛠️ create_webpage_file_screenshot] ${writeFileErr.message}`, { error: writeFileErr });
+
+    return {
+      _meta: {
+        error: { type: writeFileErr.constructor.name, message: writeFileErr.message },
+        success: false,
+      },
+      content: [
+        {
+          type: 'text' as const,
+          text: `Error writing screenshot file: ${writeFileErr.message}`,
+        },
+      ],
+    };
+  }
+
+  logger.info(`[🛠️ create_webpage_file_screenshot] screenshot saved to ${screenshotFilePath}`, { size: `${sizeKB}kB` });
 
   return {
     _meta: {
@@ -78,7 +96,7 @@ export const handler: ToolCallback<typeof schema> = async ({
     content: [
       {
         type: 'text' as const,
-        text: `Screenshot created and saved to ${screenshotFilePath} (${size}kB). Screenshot resource available at URI ${screenshotUri}`,
+        text: `Screenshot created and saved to ${screenshotFilePath} (${sizeKB}kB). Screenshot resource available at URI ${screenshotUri}`,
       },
     ],
   };
