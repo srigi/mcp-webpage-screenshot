@@ -14,6 +14,14 @@ Each capture is saved to disk and exposed as a [Resource](https://modelcontextpr
 
 ### Configure MCP in your IDE
 
+#### Claude Code
+
+```bash
+claude mcp add webpageScreenshot pnpm dlx @srigi/mcp-webpage-screenshot
+```
+
+#### JSON configuration
+
 Add the following configuration to your MCP settings:
 
 ```json
@@ -41,9 +49,9 @@ You can configure logging by adding flags to the `args` array in your MCP config
 
 ```json
 "webpageScreenshot": {
-  "command": "npx",
+  "command": "pnpm",
   "args": [
-    "-y", "@srigi/mcp-webpage-screenshot",
+    "dlx", "@srigi/mcp-webpage-screenshot",
     "--debug", "/absolute/path/to/debug.log",
     "--pretty-print"
   ]
