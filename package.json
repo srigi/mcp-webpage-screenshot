@@ -2,7 +2,7 @@
   "name": "@srigi/mcp-webpage-screenshot",
   "description": "MCP server for webpage screenshot",
   "license": "MIT",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "bugs": {
     "url": "https://github.com/srigi/mcp-webpage-screenshot/issues"
   },
