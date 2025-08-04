@@ -5,14 +5,14 @@ import { Writable } from 'node:stream';
 
 import type { DebugConfig } from '~/utils/cli/parseDebugArgs';
 
-let loggerInstance: Logger | undefined;
-
 type CreateLoggerOptions = {
   debugConfig: DebugConfig;
-  prettyPrint: boolean;
+  prettyPrint?: boolean;
 };
 
-export function createLogger({ debugConfig, prettyPrint }: CreateLoggerOptions) {
+let loggerInstance: Logger | undefined;
+
+export function createLogger({ debugConfig, prettyPrint = false }: CreateLoggerOptions) {
   const format = winston.format.json({ ...(prettyPrint ? { space: 2 } : {}) });
 
   if (!debugConfig.enabled) {
