@@ -54,8 +54,13 @@ export const handler: ToolCallback<typeof schema> = async ({
 
   const [screenshotBuffer, mimeType] = screenshotResult;
   const sizeKB = Math.round((screenshotBuffer.length / 1024) * 100) / 100; // size in kB
-  const [screenshotUri] = addScreenshotResource(screenshotBuffer, mimeType, webpageFilePath, new Date().getTime());
 
+  const [addResourceErr, resourceResult] = tryCatch(() => addScreenshotResource(screenshotBuffer, mimeType, webpageFilePath));
+  if (addResourceErr) {
+    return respondError(addResourceErr, '[🛠️ create_webpage_file_screenshot]');
+  }
+
+  const [screenshotUri] = resourceResult;
   const [writeFileErr] = tryCatch(() => writeFileSync(resolve(workspacePath, screenshotFilePath), screenshotBuffer));
   if (writeFileErr) {
     return respondError(writeFileErr, '[🛠️ create_webpage_file_screenshot]');

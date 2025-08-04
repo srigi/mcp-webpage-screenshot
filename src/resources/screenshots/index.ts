@@ -2,6 +2,10 @@ import { Variables } from '@modelcontextprotocol/sdk/shared/uriTemplate.js';
 
 import { getLogger } from '~/utils/logger';
 
+export class DuplicateScreenshotIdError extends Error {
+  name = 'DuplicateScreenshotIdError';
+}
+
 export type ScreenshotResource = {
   blob: string;
   mimeType: string;
@@ -10,7 +14,12 @@ export type ScreenshotResource = {
 };
 export const screenshotResources = new Map<number, ScreenshotResource>();
 
-export function addScreenshot(buffer: Buffer, mimeType: string, text: string, id: number): [string, ScreenshotResource] {
+export function addScreenshot(buffer: Buffer, mimeType: string, text: string, screenshotId?: number): [string, ScreenshotResource] {
+  const id = screenshotId ?? new Date().getTime();
+  if (screenshotResources.has(id)) {
+    throw new DuplicateScreenshotIdError(`Screenshot with ID ${id} already exists`);
+  }
+
   const screenshotResource = {
     blob: `data:${mimeType};base64,${buffer.toString('base64')}`,
     mimeType,

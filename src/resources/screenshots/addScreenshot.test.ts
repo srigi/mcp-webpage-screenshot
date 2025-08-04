@@ -112,4 +112,22 @@ describe('Resource screenshots://{id} · addScreenshot()', () => {
       expect(screenshotResources.get(id)).toEqual(resource);
     });
   });
+
+  it('throws error when adding screenshot with duplicate ID', () => {
+    const buffer = Buffer.from('test data');
+    const mimeType = 'image/png';
+    const id = 123;
+
+    // Add first screenshot
+    addScreenshot(buffer, mimeType, 'first.html', id);
+    expect(screenshotResources.size).toBe(1);
+
+    // Try to add second screenshot with same ID
+    expect(() => {
+      addScreenshot(buffer, mimeType, 'second.html', id);
+    }).toThrow('Screenshot with ID 123 already exists');
+
+    // Verify only one screenshot remains
+    expect(screenshotResources.size).toBe(1);
+  });
 });
