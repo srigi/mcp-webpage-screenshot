@@ -175,6 +175,15 @@ pnpm playwright install --with-deps --only-shell chromium
    }
    ```
 
+### Testing
+
+Run tests:
+```
+pnpm test
+```
+
+Tests use Vitest with global logger setup in `vitest.setup.ts` to handle TypeScript/JavaScript module isolation.
+
 Notes:
 
 - Restart the MCP in your IDE after source changes to pick up newly compiled code.

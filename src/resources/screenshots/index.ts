@@ -10,33 +10,31 @@ export type ScreenshotResource = {
 };
 export const screenshotResources = new Map<number, ScreenshotResource>();
 
-export function addScreenshot(buffer: Buffer, mimeType: string, webpageScreenshotUri: string) {
-  const screenshotId = new Date().getTime();
+export function addScreenshot(buffer: Buffer, mimeType: string, text: string, id: number): [string, ScreenshotResource] {
   const screenshotResource = {
     blob: `data:${mimeType};base64,${buffer.toString('base64')}`,
     mimeType,
-    text: webpageScreenshotUri,
-    uri: `screenshots://${screenshotId}`,
+    text: `Screenshot of ${text}`,
+    uri: `screenshots://${id}`,
   };
 
-  screenshotResources.set(screenshotId, screenshotResource);
-  getLogger().debug('[📚 screenshots://{screenshotId}] addScreenshot()', { screenshotResources: screenshotResources.size });
+  screenshotResources.set(id, screenshotResource);
+  getLogger().debug('[📚 screenshots://{id}] addScreenshot(), count:', { screenshotResources: screenshotResources.size });
 
   return [screenshotResource.uri, screenshotResource];
 }
 
 export function handler(uri: URL, variables: Variables) {
-  getLogger().debug('[📚 screenshots://{screenshotId}] ReadResourceCallback()', { uri, variables });
+  getLogger().debug('[📚 screenshots://{id}] ReadResourceCallback()', { uri, variables });
 
-  if (typeof variables.screenshotId !== 'string') {
+  if (typeof variables.id !== 'string') {
     return {
       isError: true,
       contents: [{ text: 'Screenshot ID is incorrect or missing!', uri: uri.href }],
     };
   }
 
-  const screenshotId = parseInt(decodeURIComponent(variables.screenshotId), 10);
-  const screenshotResource = screenshotResources.get(screenshotId);
+  const screenshotResource = screenshotResources.get(parseInt(variables.id, 10));
   if (!screenshotResource) {
     return {
       isError: true,

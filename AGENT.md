@@ -92,6 +92,39 @@ This document front‑loads the most actionable rules for contributing code. Too
 
 - Vitest in Node env; tests live next to sources as `*.test.ts`
 - Test runner configuration in `vitest.config.ts`
+- Global test setup in `vitest.setup.ts` handles logger initialization
+
+### Logger Setup for Tests
+
+**Important**: When testing code that uses `getLogger()`, the logger must be initialized first or tests will fail with "Logger has not been configured!"
+
+**The Problem**: Vitest runs both TypeScript and compiled JavaScript modules simultaneously, creating separate module instances. If you initialize the logger in TypeScript but your code calls `getLogger()` from compiled JavaScript, the logger instances are different.
+
+**The Solution**: Use `vitest.setup.ts` to initialize the logger in both module systems:
+
+```javascript
+// initialize logger for both TS and JS modules
+try {
+  const { createLogger } = require('./src/utils/logger');
+  createLogger({ debugConfig: { enabled: false } });
+} catch (_) {
+  // module doesn't exist yet, that's fine
+}
+
+try {
+  const { createLogger } = require('./src/utils/logger.js');
+  createLogger({ debugConfig: { enabled: false } });
+} catch (_) {
+  // module doesn't exist yet, that's fine
+}
+```
+
+**Writing Tests**: For code that depends on logger, no special setup needed in individual test files — the global setup handles it. Just import and test normally:
+
+```typescript
+import { addScreenshot, screenshotResources } from './index';
+// logger is initialized, no need to mock
+```
 
 ## 10) Adding a new tool — checklist
 

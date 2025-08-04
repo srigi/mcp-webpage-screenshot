@@ -20,7 +20,7 @@ const server = new McpServer({ name: 'Webpage screenshot', version });
 
 server.resource(
   'Resources of captured screenshots',
-  new ResourceTemplate('screenshots://{screenshotId}', { list: undefined }),
+  new ResourceTemplate('screenshots://{id}', { list: undefined }),
   screenshotResourceHandler,
 );
 server.tool('create_webpage_url_screenshot', 'Create a screenshot of a webpage from a provided URL', urlScreenshotSchema, urlScreenshotHandler);
