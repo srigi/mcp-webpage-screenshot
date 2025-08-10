@@ -31,4 +31,7 @@ server.tool(
   fileScreenshotHandler,
 );
 
-server.connect(new StdioServerTransport()).then(() => logger.info('server connected'));
+server.connect(new StdioServerTransport()).then(() => {
+  logger.info('server connected');
+  console.info('server connected');
+});

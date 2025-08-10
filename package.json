@@ -28,15 +28,16 @@
   "scripts": {
     "build": "ncc build src/index.ts --minify --out dist/ && echo '#!/usr/bin/env node' | cat - dist/index.js > dist/cli.js && chmod +x dist/cli.js",
     "build:tsc": "tsc && tsc-alias",
-    "dev": "pnpm build:tsc && chokidar 'src/**/*.ts' -c 'tsc && tsc-alias'",
     "dev:inspector": "pnpx @modelcontextprotocol/inspector",
     "playwright": "playwright",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "tsc": "tsc -noEmit",
+    "tsx": "tsx",
     "test": "vitest run",
     "postinstall": "playwright install --with-deps --only-shell chromium",
-    "start": "node dist/cli.js"
+    "start": "node dist/cli.js",
+    "start:dev": "tsx --watch src/index.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "~1.17",
@@ -45,17 +46,18 @@
     "zod": "~3.25"
   },
   "devDependencies": {
-    "@eslint/js": "~9.32",
+    "@eslint/js": "~9.33",
     "@types/node": "^24",
     "@vercel/ncc": "~0.38",
     "chokidar-cli": "~3.0",
-    "eslint": "~9.32",
+    "eslint": "~9.33",
     "eslint-config-prettier": "~10.1",
     "eslint-plugin-prettier": "~5.5",
     "prettier": "~3.6",
     "tsc-alias": "~1.8",
+    "tsx": "~4.20",
     "typescript": "~5.8",
-    "typescript-eslint": "~8.38",
+    "typescript-eslint": "~8.39",
     "vitest": "~3.2"
   },
   "packageManager": "pnpm@10.14.0+sha512.ad27a79641b49c3e481a16a805baa71817a04bbe06a38d17e60e2eaee83f6a146c6a688125f5792e48dd5ba30e7da52a5cda4c3992b9ccf333f9ce223af84748"
